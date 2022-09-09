@@ -3519,6 +3519,19 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert | comSuSi;
     def->set_default_value(new ConfigOptionFloat(0.035));
 
+    def = this->add("min_wall_thickness", coFloat);
+    def->label = L("Minimum Wall Thickness");
+    def->full_label = L("Minimum thickness of outer shell");
+    def->category = OptionCategory::perimeter;
+    def->tooltip = L("The number of perimeter loops is increased above perimeters if necessary to satisfy "
+                     "minimum thickness of outer shell.");
+    def->sidetext = L("mm");
+    def->aliases = { "perimeters_thickness" };
+    def->min = 0;
+    def->max = 10000;
+    def->mode = comSimpleAE | comPrusa;
+    def->set_default_value(new ConfigOptionFloat(0.));
+
     def = this->add("min_width_top_surface", coFloatOrPercent);
     def->label = L("Minimum top width for infill");
     def->category = OptionCategory::speed;
@@ -7650,6 +7663,7 @@ void DynamicPrintConfig::normalize_fdm()
         }
         {
             this->opt<ConfigOptionInt>("perimeters", true)->value = 1;
+            this->opt<ConfigOptionInt>("min_wall_thickness", true)->value = 0;
             this->opt<ConfigOptionInt>("top_solid_layers", true)->value = 0;
             this->opt<ConfigOptionPercent>("fill_density", true)->value = 0;
             this->opt<ConfigOptionBool>("support_material", true)->value = false;

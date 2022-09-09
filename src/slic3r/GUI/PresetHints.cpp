@@ -412,10 +412,11 @@ std::string PresetHints::recommended_thin_wall_thickness(const PresetBundle& pre
     int     num_perimeters = print_config.opt_int("perimeters");
     bool    thin_walls = print_config.opt_bool("thin_walls");
     float   nozzle_diameter = float(printer_config.opt_float("nozzle_diameter", 0));
+    float   min_thickness = float(print_config.opt_float("min_wall_thickness"));
 
     std::string out;
     if (layer_height <= 0.f) {
-        out += _utf8(L("Recommended object min thin wall thickness: Not available due to invalid layer height."));
+        out += _utf8(L("Wall thickness: Not available due to invalid layer height."));
         return out;
     }
 
@@ -453,21 +454,33 @@ std::string PresetHints::recommended_thin_wall_thickness(const PresetBundle& pre
         perimeter_flow = perimeter_flow.with_spacing_ratio(overlap);
 
     if (num_perimeters > 0) {
+        double wall_thickness = external_perimeter_flow.width() + external_perimeter_flow.spacing() + (perimeter_flow.spacing() * 2) * (num_perimeters - 1);
+        if (wall_thickness < min_thickness) {
+            int extra_perimeters = ceil((min_thickness - wall_thickness) / (perimeter_flow.spacing() * 2));
+            int new_perimeters = std::max(1, int(ceil((min_thickness - external_perimeter_flow.width() - external_perimeter_flow.spacing()) / (perimeter_flow.spacing() * 2)) + 1));
+            wall_thickness = external_perimeter_flow.width() + external_perimeter_flow.spacing() + (perimeter_flow.spacing() * 2) * (new_perimeters - 1);
+            out += (boost::format(_utf8(L("Perimeters will be increased to %d to ensure a minimum wall thickness of %.2f mm."))) % new_perimeters % min_thickness).str();
+        }
+        out += "\n" + (boost::format(_utf8(L("Wall thickness: %.2f mm"))) % wall_thickness).str();
+
         int num_lines = std::min(num_perimeters, 6);
         double width = external_perimeter_flow.width() + external_perimeter_flow.spacing();
-        out += (boost::format(_utf8(L("Recommended object min (thick) wall thickness for layer height %.2f and"))) % layer_height).str() + " ";
-        out += (boost::format(_utf8(L("%d perimeter: %.2f mm"))) % 1 % width).str() + " ";
+        std::string recommendation;
+        recommendation += (boost::format(_utf8(L("Recommended object min (thick) wall thickness for layer height %.2f and"))) % layer_height).str() + " ";
+        recommendation += (boost::format(_utf8(L("%d perimeter: %.2f mm"))) % 1 % width).str() + " ";
         // Start with the width of two closely spaced 
         try {
             for (int i = 2; i <= num_lines; thin_walls ? ++i : i++) {
                 width += perimeter_flow.spacing() * 2;
-                out += ", " + (boost::format(_utf8(L("%d perimeter: %.2f mm"))) % i % width).str() + " ";
+                recommendation += ", " + (boost::format(_utf8(L("%d perimeter: %.2f mm"))) % i % width).str() + " ";
             }
         }
         catch (const FlowErrorNegativeSpacing&) {
-            out = _utf8(L("Recommended object thin wall thickness: Not available due to excessively small extrusion width."));
+            recommendation = _utf8(L("Recommended object thin wall thickness: Not available due to excessively small extrusion width."));
         }
+        out += "\n" + recommendation;
     }
+    
     return out;
 }
 

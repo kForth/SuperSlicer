@@ -289,9 +289,9 @@ std::vector<std::reference_wrapper<const PrintRegion>> PrintObject::all_regions(
         // but we don't generate any extra perimeter if fill density is zero, as they would be floating
         // inside the object - infill_only_where_needed should be the method of choice for printing
         // hollow objects
-    for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
-        const PrintRegion &region = this->printing_region(region_id);
-            if (!region.config().extra_perimeters || region.config().perimeters == 0 || region.config().fill_density == 0 || this->layer_count() < 2)
+        for (size_t region_id = 0; region_id < this->num_printing_regions(); ++ region_id) {
+            const PrintRegion &region = this->printing_region(region_id);
+            if (!(region.config().extra_perimeters || region.config().min_wall_thickness > 0) || region.config().perimeters == 0 || region.config().fill_density == 0 || this->layer_count() < 2)
                 continue;
 
             BOOST_LOG_TRIVIAL(debug) << "Generating extra perimeters for region " << region_id << " in parallel - start";
@@ -310,6 +310,7 @@ std::vector<std::reference_wrapper<const PrintRegion>> PrintObject::all_regions(
                     const Flow ext_perimeter_flow = layerm.flow(frExternalPerimeter);
                     const coord_t ext_perimeter_width = ext_perimeter_flow.scaled_width();
                     const coord_t ext_perimeter_spacing = ext_perimeter_flow.scaled_spacing();
+                    const coord_t min_perimeter_thickness = scale_t(layerm.region().config().min_wall_thickness.value);
 
                     for (Surface& slice : layerm.m_slices.surfaces) {
                         for (;;) {
@@ -326,7 +327,8 @@ std::vector<std::reference_wrapper<const PrintRegion>> PrintObject::all_regions(
                             // check whether a portion of the upper slices falls inside the critical area
                             const Polylines intersection = intersection_pl(to_polylines(upper_layerm_polygons), critical_area);
                             // only add an additional loop if at least 30% of the slice loop would benefit from it
-                            if (total_length(intersection) <= total_loop_length * 0.3)
+                            // or if we need to increase the shell thickness
+                            if (total_length(intersection) <= total_loop_length * 0.3 && perimeters_thickness >= min_perimeter_thickness)
                                 break;
                             /*
                             if (0) {
@@ -892,6 +894,7 @@ bool PrintObject::invalidate_state_by_config_options(
                 || opt_key == "external_infill_margin"
                 || opt_key == "external_perimeter_overlap"
                 || opt_key == "gap_fill_overlap"
+                || opt_key == "min_wall_thickness"
                 || opt_key == "no_perimeter_unsupported_algo"
                 || opt_key == "filament_max_overlap"
                 || opt_key == "perimeters"
