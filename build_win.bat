@@ -29,12 +29,12 @@
 @ECHO                  deps-dirty - build deps without cleaning
 @ECHO                Default: %PS_STEPS_DEFAULT%
 @ECHO  -r -RUN       Specifies what to perform at the run step:
-@ECHO                  console - run and wait on slic3r-console.exe
+@ECHO                  console - run and wait on superslicer-console.exe
 @ECHO                  custom - run and wait on your custom build/%PS_CUSTOM_RUN_FILE%
 @ECHO                  ide - open project in Visual Studio if not open (no wait)
 @ECHO                  none - run step does nothing
-@ECHO                  viewer - run slic3r-gcodeviewer.exe (no wait)
-@ECHO                  window - run slic3r.exe (no wait)
+@ECHO                  viewer - run superslicer-gcodeviewer.exe (no wait)
+@ECHO                  window - run superslicer.exe (no wait)
 @ECHO                Default: none
 @ECHO  -d -DESTDIR   Deps destination directory
 @ECHO                Warning: Changing destdir path will not delete the old destdir.
@@ -44,7 +44,7 @@
 @ECHO.
 @ECHO  Examples:
 @ECHO.
-@ECHO  Initial build:           build_win -d "c:\src\PrusaSlicer-deps"
+@ECHO  Initial build:           build_win -d "c:\src\SuperSlicer-deps"
 @ECHO  Build post deps change:  build_win -s all
 @ECHO  App dirty build:         build_win
 @ECHO  App dirty build ^& run:   build_win -r console
@@ -164,6 +164,9 @@ IF NOT EXIST "%MSVC_DIR%" (
     @ECHO ERROR: Compatible Visual Studio installation not found. 1>&2
     GOTO :HELP
 )
+REM Cmake always defaults to latest supported MSVC generator. Let's make sure it uses what we select.
+FOR /F "tokens=* USEBACKQ" %%I IN (`^""%VSWHERE%" %MSVC_FILTER% -nologo -property catalog_productLineVersion^"`) DO SET PS_PRODUCT_VERSION=%%I
+
 REM Give the user a chance to cancel if we found something odd.
 IF "%PS_ASK_TO_CONTINUE%" EQU "" GOTO :BUILD_ENV
 @ECHO.
@@ -183,6 +186,7 @@ SET PS_CURRENT_STEP=environment
 @ECHO ** Deps path:    %PS_DESTDIR%
 @ECHO ** Using Microsoft Visual Studio installation found at:
 @ECHO **  %MSVC_DIR%
+SET CMAKE_GENERATOR=Visual Studio %PS_VERSION% %PS_PRODUCT_VERSION%
 CALL "%MSVC_DIR%\Common7\Tools\vsdevcmd.bat" -arch=%PS_ARCH% -host_arch=%PS_ARCH_HOST% -app_platform=Desktop
 IF %ERRORLEVEL% NEQ 0 GOTO :END
 REM Need to reset the echo state after vsdevcmd.bat clobbers it.
@@ -253,14 +257,14 @@ FOR /F "tokens=2 delims=," %%I in (
 @ECHO Running %PS_RUN% application...
 @REM icacls below is just a hack for file-not-found error handling
 IF "%PS_RUN%" EQU "console" (
-    icacls slic3r-console.exe >nul || GOTO :END
-    start /wait /b slic3r-console.exe
+    icacls superslicer-console.exe >nul || GOTO :END
+    start /wait /b superslicer-console.exe
 ) ELSE IF "%PS_RUN%" EQU "window" (
-    icacls slic3r.exe >nul || GOTO :END
-    start slic3r.exe
+    icacls superslicer.exe >nul || GOTO :END
+    start superslicer.exe
 ) ELSE IF "%PS_RUN%" EQU "viewer" (
-    icacls slic3r-gcodeviewer.exe >nul || GOTO :END
-    start slic3r-gcodeviewer.exe
+    icacls superslicer-gcodeviewer.exe >nul || GOTO :END
+    start superslicer-gcodeviewer.exe
 ) ELSE IF "%PS_RUN%" EQU "custom" (
     icacls %PS_CUSTOM_BAT% >nul || GOTO :END
     CALL %PS_CUSTOM_BAT%

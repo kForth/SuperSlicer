@@ -245,6 +245,10 @@ enum ConfigOptionType : uint16_t{
     coBools         = coBool + coVectorType,
     // a generic enum
     coEnum          = 9,
+    // float value ending in 'mm'
+    coLength = 10,
+    // integer count of float length 
+    coCountOrLength = 11,
 };
 
 enum ConfigOptionMode : uint64_t {
@@ -1820,6 +1824,106 @@ private:
 	template<class Archive> void serialize(Archive& ar) { ar(cereal::base_class<ConfigOptionInt>(this)); }
 };
 
+class ConfigOptionLength : public ConfigOptionFloat
+{
+public:
+    ConfigOptionLength() : ConfigOptionFloat(0) {}
+    explicit ConfigOptionLength(double _value) : ConfigOptionFloat(_value) {}
+    explicit ConfigOptionLength(double _value, bool _phony) : ConfigOptionFloat(_value, _phony) {}
+    
+    static ConfigOptionType static_type() { return coLength; }
+    ConfigOptionType        type()  const override { return static_type(); }
+    ConfigOption*           clone() const override { return new ConfigOptionLength(*this); }
+    ConfigOptionLength&     operator= (const ConfigOption *opt) { this->set(opt); return *this; }
+    bool                    operator==(const ConfigOptionLength &rhs) const throw() { return this->value == rhs.value; }
+    bool                    operator< (const ConfigOptionLength &rhs) const throw() { return this->value <  rhs.value; }
+
+    std::string serialize() const override 
+    {
+        std::ostringstream ss;
+        ss << this->value;
+        std::string s(ss.str());
+        s += "mm";
+        return s;
+    }
+    
+    bool deserialize(const std::string &str, bool append = false) override
+    {
+        UNUSED(append);
+        // don't try to parse the trailing 'mm' since it's optional
+        std::istringstream iss(str);
+        iss >> this->value;
+        return !iss.fail();
+    }
+
+private:
+	friend class cereal::access;
+	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionFloat>(this)); }
+};
+
+class ConfigOptionCountOrLength : public ConfigOptionLength
+{
+public:
+    bool length;
+    ConfigOptionCountOrLength() : ConfigOptionLength(0), length(false) {}
+    explicit ConfigOptionCountOrLength(double _value, bool _length) : ConfigOptionLength(_value), length(_length) {}
+    explicit ConfigOptionCountOrLength(double _value, bool _length, bool _phony) : ConfigOptionLength(_value, _phony), length(_length) {}
+
+    int32_t* length_to_count;
+
+    static ConfigOptionType     static_type() { return coCountOrLength; }
+    ConfigOptionType            type()  const override { return static_type(); }
+    ConfigOption*               clone() const override { return new ConfigOptionCountOrLength(*this); }
+    ConfigOptionCountOrLength& operator=(const ConfigOption* opt) { this->set(opt); return *this; }
+    bool                        operator==(const ConfigOption &rhs) const override
+    {
+        if (rhs.type() != this->type())
+            throw ConfigurationError("ConfigOptionCountOrLength: Comparing incompatible types");
+        assert(dynamic_cast<const ConfigOptionCountOrLength*>(&rhs));
+        return *this == *static_cast<const ConfigOptionCountOrLength*>(&rhs);
+    }
+    bool                        operator==(const ConfigOptionCountOrLength &rhs) const throw()
+        { return this->value == rhs.value && this->length == rhs.length; }
+    size_t                      hash() const throw() override 
+        { size_t seed = std::hash<double>{}(this->value); return this->length ? seed ^ 0x9e3779b9 : seed; }
+    bool                        operator< (const ConfigOptionCountOrLength &rhs) const throw() 
+        { return this->value < rhs.value || (this->value == rhs.value && int(this->length) < int(rhs.length)); }
+
+    void set(const ConfigOption *rhs) override {
+        if (rhs->type() != this->type())
+            throw ConfigurationError("ConfigOptionCountOrLength: Assigning an incompatible type");
+        assert(dynamic_cast<const ConfigOptionCountOrLength*>(rhs));
+        *this = *static_cast<const ConfigOptionCountOrLength*>(rhs);
+    }
+
+    std::string serialize() const override
+    {
+        std::ostringstream ss;
+        if (this->length) {
+            ss << this->value;
+            std::string s(ss.str());
+            s += "mm";
+            return s;
+        } else {
+            ss << (int32_t) this->value;
+            return ss.str();
+        }
+    }
+    
+    bool deserialize(const std::string &str, bool append = false) override
+    {
+        UNUSED(append);
+        this->length = str.find_first_of("mm") != std::string::npos;
+        std::istringstream iss(str);
+        iss >> this->value;
+        return !iss.fail();
+    }
+
+private:
+	friend class cereal::access;
+	template<class Archive> void serialize(Archive &ar) { ar(cereal::base_class<ConfigOptionLength>(this), length); }
+};
+
 // Definition of a configuration value for the purpose of GUI presentation, editing, value mapping and config file handling.
 class ConfigOptionDef
 {
@@ -1963,6 +2067,8 @@ public:
     // For example, 
     // For example external_perimeter_speed may be defined as a fraction of perimeter_speed.
     t_config_option_key                 ratio_over;
+    // Lambda function to convert length unit to count
+    std::function<int32_t(int, float)>  length_to_count = [](int rawPtr, float value) -> int32_t { return (int32_t)value; };
     // True for multiline strings.
     bool                                multiline       = false;
     // For text input: If true, the GUI text box spans the complete page width.

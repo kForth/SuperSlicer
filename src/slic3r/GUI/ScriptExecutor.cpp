@@ -545,6 +545,42 @@ public:
 
 };
 
+int32_t as_get_computed_int(std::string& key)
+{
+    if ((current_script->tab()->get_printer_technology() & PrinterTechnology::ptFFF) != 0) {
+        ConfigAdapter fullconfig(
+            &current_script->tab()->m_preset_bundle->fff_prints.get_edited_preset().config, 
+            new ConfigAdapter(
+                &current_script->tab()->m_preset_bundle->filaments.get_edited_preset().config, 
+                new ConfigAdapter(&current_script->tab()->m_preset_bundle->printers.get_edited_preset().config)));
+        try {
+            return (int32_t)fullconfig.get_computed_value(key, 0);
+            //return (int32_t)wxGetApp().plater()->fff_print().full_print_config().get_computed_value(key, 0);
+        }
+        catch (Exception e) {
+            if(wxGetApp().initialized())
+                BOOST_LOG_TRIVIAL(error) << "Error, can't compute fff option '" << key << "'";
+        }
+
+    } else {
+        ConfigAdapter fullconfig(
+            &current_script->tab()->m_preset_bundle->sla_prints.get_edited_preset().config,
+            new ConfigAdapter(
+                &current_script->tab()->m_preset_bundle->sla_materials.get_edited_preset().config,
+                new ConfigAdapter(&current_script->tab()->m_preset_bundle->printers.get_edited_preset().config)));
+        try {
+            return (int32_t)fullconfig.get_computed_value(key, 0);
+            //return (int32_t)wxGetApp().plater()->fff_print().full_print_config().get_computed_value(key, 0);
+        }
+        catch (Exception e) {
+            if (wxGetApp().initialized())
+                BOOST_LOG_TRIVIAL(error) << "Error, can't compute sla option '" << key << "'";
+        }
+
+    }
+    return 0;
+}
+
 float as_get_computed_float(std::string& key)
 {
     if ((current_script->tab()->get_printer_technology() & PrinterTechnology::ptFFF) != 0) {
@@ -669,6 +705,7 @@ void ScriptContainer::init(const std::string& tab_key, Tab* tab)
             m_script_engine.get()->RegisterGlobalFunction("void set_custom_string(int, string &in, string &in)", WRAP_FN(as_set_custom_string), AngelScript::asCALL_GENERIC);
 
             m_script_engine.get()->RegisterGlobalFunction("float get_computed_float(string &in)", WRAP_FN(as_get_computed_float), AngelScript::asCALL_GENERIC);
+            m_script_engine.get()->RegisterGlobalFunction("int32_t get_computed_int(std::string& key)", WRAP_FN(as_get_computed_int), AngelScript::asCALL_GENERIC);
             m_script_engine.get()->RegisterGlobalFunction("void back_initial_value(string &in)", WRAP_FN(as_back_initial_value), AngelScript::asCALL_GENERIC);
             m_script_engine.get()->RegisterGlobalFunction("void back_custom_initial_value(int, string &in)", WRAP_FN(as_back_custom_initial_value), AngelScript::asCALL_GENERIC);
             m_script_engine.get()->RegisterGlobalFunction("void ask_for_refresh()", WRAP_FN(as_ask_for_refresh), AngelScript::asCALL_GENERIC);
@@ -699,6 +736,7 @@ void ScriptContainer::init(const std::string& tab_key, Tab* tab)
             m_script_engine.get()->RegisterGlobalFunction("void set_custom_string(int, string &in, string &in)",    AngelScript::asFUNCTION(as_set_custom_string),  AngelScript::asCALL_CDECL);
 
             m_script_engine.get()->RegisterGlobalFunction("float get_computed_float(string &in)",   AngelScript::asFUNCTION(as_get_computed_float), AngelScript::asCALL_CDECL);
+            m_script_engine.get()->RegisterGlobalFunction("int32_t get_computed_int(std::string& key)", AngelScript::asFUNCTION(as_get_computed_int), AngelScript::asCALL_CDECL);
             m_script_engine.get()->RegisterGlobalFunction("void back_initial_value(string &in)",    AngelScript::asFUNCTION(as_back_initial_value), AngelScript::asCALL_CDECL);
             m_script_engine.get()->RegisterGlobalFunction("void back_custom_initial_value(int, string &in)",    AngelScript::asFUNCTION(as_back_custom_initial_value), AngelScript::asCALL_CDECL);
             m_script_engine.get()->RegisterGlobalFunction("void ask_for_refresh()",                 AngelScript::asFUNCTION(as_ask_for_refresh),    AngelScript::asCALL_CDECL);

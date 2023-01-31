@@ -3937,7 +3937,7 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comPrusa;
     def->set_default_value(new ConfigOptionFloatOrPercent(60, true));
 
-    def = this->add("perimeters", coInt);
+    def = this->add("perimeters", coCountOrLength);
     def->label = L("Perimeters");
     def->full_label = L("Perimeters count");
     def->category = OptionCategory::perimeter;
@@ -3945,12 +3945,29 @@ void PrintConfigDef::init_fff_params()
                    "Note that Slic3r may increase this number automatically when it detects "
                    "sloping surfaces which benefit from a higher number of perimeters "
                    "if the Extra Perimeters option is enabled.");
-    def->sidetext = L("(minimum).");
+    def->sidetext = L("(mm or #) (minimum).");
     def->aliases = { "perimeter_offsets" };
+    def->length_to_count = [](int rawPtr, float value) -> int32_t {
+        if (value <= 0)
+            return 0;
+
+        float base = static_cast<const ConfigBase*>(rawPtr);
+        auto _epw = base->option("external_perimeter_extrusion_width");
+        float epw = static_cast<const ConfigOptionFloatOrPercent*>(_epw)->value;
+        if (value <= epw)
+            return 1;
+
+        float eps = base->get_computed_value("external_perimeter_extrusion_spacing");
+        if (value <= eps * 2)
+            return 2;
+
+        float ps = base->get_computed_value("perimeter_extrusion_spacing");
+        return (int32_t)ceil((value - eps * 2) / ps + 2);
+    };
     def->min = 0;
     def->max = 10000;
     def->mode = comSimpleAE | comPrusa;
-    def->set_default_value(new ConfigOptionInt(3));
+    def->set_default_value(new ConfigOptionCountOrLength(3, false));
 
     def = this->add("post_process", coStrings);
     def->label = L("Post-processing scripts");

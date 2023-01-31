@@ -310,6 +310,8 @@ ConfigOption* ConfigOptionDef::create_empty_option() const
 	    case coBool:            return new ConfigOptionBool();
 	    case coBools:           return new ConfigOptionBools();
 	    case coEnum:            return new ConfigOptionEnumGeneric(this->enum_keys_map);
+	    case coLength:          return new ConfigOptionLength();
+	    case coCountOrLength:   return new ConfigOptionCountOrLength();
 	    default:                throw ConfigurationError(std::string("Unknown option type for option ") + this->label);
 	    }
 	}
@@ -745,6 +747,13 @@ double ConfigBase::get_computed_value(const t_config_option_key &opt_key, int ex
             return static_cast<const ConfigOptionInt*>(raw_opt)->value;
         if (raw_opt->type() == coBool)
             return static_cast<const ConfigOptionBool*>(raw_opt)->value ? 1 : 0;
+        if (raw_opt->type() == coCountOrLength) {
+            auto cocol = static_cast<const ConfigOptionCountOrLength*>(raw_opt);
+            if (cocol->length){
+                return (double)(cocol->length_to_count(this, cocol->value));
+            }
+            return cocol->value;
+        }
         const ConfigOptionPercent* cast_opt = nullptr;
         if (raw_opt->type() == coFloatOrPercent) {
             auto cofop = static_cast<const ConfigOptionFloatOrPercent*>(raw_opt);

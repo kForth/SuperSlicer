@@ -185,6 +185,8 @@ These functions can be called everywhere.
     Can be used by type float, percent and flaot_or_percent
  * float **get_computed_float**(string &in key)
     Get the float computed value of the field. Useful if it's a floatOrPercent that is computable.
+ * int **get_computed_int**(string &in key)
+    Get the int computed value of the field.
  * bool  **is_percent**(string &in key)
  * void  **get_string**(string &in key, string &out get_val)
     Can be used by type string and enum (return the enum_value, not the label)
